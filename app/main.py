@@ -23,6 +23,16 @@ import pdfplumber
 import docx as python_docx
 from sentence_transformers import SentenceTransformer
 
+# ── Load .env file ────────────────────────────────────────────────────────────
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
 # ── App ──────────────────────────────────────────────────────────────────────
 app = FastAPI(title="Ultra Doc-Intelligence", version="1.0.0")
 
@@ -35,8 +45,13 @@ app.add_middleware(
 
 # ── Models & Clients ─────────────────────────────────────────────────────────
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
-gemini   = genai.Client(api_key="AIzaSyCCyQa07qZjeXheHq9e3NoqRjTLuDAmXUQ")
-MODEL    = "gemini-2.0-flash-lite"
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY not set. Please add it to your .env file.")
+
+gemini = genai.Client(api_key=GEMINI_API_KEY)
+MODEL  = "gemini-2.0-flash-lite"
 
 # ── In-Memory Store ───────────────────────────────────────────────────────────
 doc_store: dict = {}
@@ -204,17 +219,17 @@ async def ask(req: AskRequest):
 
     if "not found in document" in answer.lower():
         return {
-            "answer":    "Not found in document.",
+            "answer":     "Not found in document.",
             "confidence": conf,
-            "sources":   [],
-            "guardrail": "model_declined",
+            "sources":    [],
+            "guardrail":  "model_declined",
         }
 
     return {
-        "answer":    answer,
+        "answer":     answer,
         "confidence": conf,
-        "sources":   chunks[:3],
-        "guardrail": None,
+        "sources":    chunks[:3],
+        "guardrail":  None,
     }
 
 
